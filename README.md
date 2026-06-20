@@ -39,7 +39,7 @@ git pull --ff-only
 
 1. `prompt` カテゴリから `Draggable Prompt Sorter` を追加します。
 2. 前段ノードのカンマ区切りテキスト出力を `text` に接続します。`STRING` / `TEXT` 系の出力に対応しています。
-3. ノード内の `Update Buttons` を押すと、ワークフロー全体ではなく、このノードまでを実行して前段テキストを取得します。
+3. 入力ソケットと同じ行にある `update` を押すと、ワークフロー全体ではなく、このノードまでを実行して前段テキストを取得します。
 4. カンマごとの要素が1つずつボタンとして表示されます。
 5. ボタンをドラッグ&ドロップして順番を入れ替えます。
 6. ボタンをクリックしてオン・オフを切り替えます。オフの項目は出力から除外されます。
@@ -63,7 +63,7 @@ blue eyes, masterpiece, 1girl
 - 入力項目が増減してもノードサイズは自動変更されません。ボタン領域を縦スクロールして確認できます。
 - ユーザーが手動で変更したノードサイズは、ボタン更新後も維持されます。
 - 順序とオン・オフ状態はワークフローに保存されます。
-- Queue / Runや`Update Buttons`を実行しても、入力項目が同じなら現在の順序とオン・オフ状態を維持します。
+- Queue / Runや`update`を実行しても、入力項目が同じなら現在の順序とオン・オフ状態を維持します。
 - 入力内容が変わった場合、同じ項目が完全に揃っているときだけ保存済み状態を再利用します。それ以外は入力順・全オンで初期化します。
 - 同じテキストが複数ある場合も、それぞれ別のボタンとして操作できます。
 
@@ -108,7 +108,7 @@ Restart ComfyUI and hard-refresh the browser after updating.
 
 1. Add `Draggable Prompt Sorter` from the `prompt` category.
 2. Connect an upstream comma-separated text output to `text`. `STRING` / `TEXT`-style outputs are supported.
-3. Press `Update Buttons` to execute only up to this node and fetch the upstream text without running the whole workflow.
+3. Press `update` on the same row as the input socket to execute only up to this node and fetch the upstream text without running the whole workflow.
 4. Each comma-separated item appears as one button.
 5. Drag and drop buttons to reorder them.
 6. Click a button to toggle it. Disabled items are omitted from the output.
@@ -130,11 +130,11 @@ blue eyes, masterpiece, 1girl
 
 - Button text is never truncated. Long text wraps inside the button and remains fully visible.
 - The raw upstream input and internal state fields are hidden; only item buttons are displayed.
-- Internal JSON remains serialized in the workflow without being shown; only `Update Buttons` and item buttons are visible on the node.
-- `Update Buttons` uses a muted blue style and refreshes upstream input by executing only up to this node.
+- Internal JSON remains serialized in the workflow without being shown; only `update` and item buttons are visible on the node.
+- `update` appears directly below the title bar on the input socket row and refreshes upstream input by executing only up to this node.
 - The node does not resize when items change. Use the button area's vertical scrollbar when needed.
 - User-resized node dimensions are preserved when buttons update.
 - Button order and enabled state are saved in the workflow.
-- Queue / Run and `Update Buttons` preserve the current order and enabled state when the incoming items are unchanged.
+- Queue / Run and `update` preserve the current order and enabled state when the incoming items are unchanged.
 - Saved state is reused only when the incoming text contains exactly the same items. Otherwise, items reset to input order and enabled.
 - Duplicate text items remain separate buttons and can be controlled independently.

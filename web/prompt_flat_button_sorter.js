@@ -4,6 +4,8 @@ const EXTENSION_NAME = "draggablePromptSorter.draggablePromptSorter";
 const NODE_NAME = "DraggablePromptSorter";
 const STATE_VERSION = 2;
 const BUTTON_VIEWPORT_HEIGHT = 160;
+const UPDATE_ROW_HEIGHT = 28;
+const UPDATE_LEFT_INSET = 76;
 
 function splitPromptText(text) {
   return String(text ?? "")
@@ -466,9 +468,90 @@ function createCanvasButtonsWidget(node) {
   return widget;
 }
 
+function createUpdateWidget(node) {
+  const widget = {
+    name: "update",
+    type: "custom",
+    y: 0,
+    pressed: false,
+    bounds: null,
+    serialize: false,
+
+    computeSize(width) {
+      return [width, UPDATE_ROW_HEIGHT];
+    },
+
+    draw(ctx, _node, width, y) {
+      this.y = y;
+      const x = Math.min(UPDATE_LEFT_INSET, Math.max(52, width - 48));
+      const buttonWidth = Math.max(36, width - x - 8);
+      const buttonHeight = 22;
+      const buttonY = y + 2;
+      this.bounds = { x, y: buttonY, w: buttonWidth, h: buttonHeight };
+
+      ctx.save();
+      ctx.fillStyle = this.pressed ? "#284b68" : "#355f82";
+      ctx.strokeStyle = this.pressed ? "#78a4c8" : "#547fa3";
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.roundRect(x, buttonY, buttonWidth, buttonHeight, 4);
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.fillStyle = "#ffffff";
+      ctx.font = "12px Arial";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText("update", x + buttonWidth / 2, buttonY + buttonHeight / 2);
+      ctx.restore();
+    },
+
+    mouse(event, pos) {
+      if (!this.bounds) return false;
+      const hit =
+        pos[0] >= this.bounds.x &&
+        pos[0] <= this.bounds.x + this.bounds.w &&
+        pos[1] >= this.bounds.y &&
+        pos[1] <= this.bounds.y + this.bounds.h;
+
+      if ((event.type === "pointerdown" || event.type === "mousedown") && hit) {
+        this.pressed = true;
+        node.setDirtyCanvas(true, true);
+        return true;
+      }
+
+      if (event.type === "pointerup" || event.type === "mouseup") {
+        const shouldUpdate = this.pressed && hit;
+        this.pressed = false;
+        node.setDirtyCanvas(true, true);
+        if (shouldUpdate) queueThisNode(node);
+        return shouldUpdate;
+      }
+
+      if (event.type === "pointercancel" || event.type === "mouseleave") {
+        this.pressed = false;
+        node.setDirtyCanvas(true, true);
+        return true;
+      }
+
+      return hit;
+    },
+  };
+
+  node.addCustomWidget(widget);
+  return widget;
+}
+
 function createPromptButtonsWidget(node) {
   if (typeof node.addDOMWidget === "function") return createDomButtonsWidget(node);
   return createCanvasButtonsWidget(node);
+}
+
+function moveVisibleWidgetsFirst(node, updateWidget, promptWidget) {
+  const remainingWidgets = node.widgets.filter(
+    (widget) => widget !== updateWidget && widget !== promptWidget
+  );
+  node.widgets = [updateWidget, promptWidget, ...remainingWidgets];
 }
 
 app.registerExtension({
@@ -484,29 +567,10 @@ app.registerExtension({
       hideWidget(getWidget(this, "text"));
       hideWidget(getWidget(this, "order_state"));
 
-      const updateButton = this.addWidget(
-        "button",
-        "Update Buttons",
-        "",
-        () => queueThisNode(this),
-        {
-          color: "#355f82",
-          text_color: "#ffffff",
-          hover_color: "#426f96",
-          serialize: false,
-        }
-      );
-      updateButton.options = {
-        ...updateButton.options,
-        color: "#355f82",
-        text_color: "#ffffff",
-        hover_color: "#426f96",
-        serialize: false,
-      };
-      updateButton.color = "#355f82";
-      updateButton.bgcolor = "#355f82";
-      updateButton.textColor = "#ffffff";
+      this.widgets_start_y = 0;
+      const updateWidget = createUpdateWidget(this);
       this.promptButtonsWidget = createPromptButtonsWidget(this);
+      moveVisibleWidgetsFirst(this, updateWidget, this.promptButtonsWidget);
 
       const textWidget = getWidget(this, "text");
       if (textWidget?.value) this.promptButtonsWidget.setSourceItems(splitPromptText(textWidget.value));
