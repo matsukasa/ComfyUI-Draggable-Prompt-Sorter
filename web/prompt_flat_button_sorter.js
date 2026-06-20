@@ -468,7 +468,7 @@ function createCanvasButtonsWidget(node) {
   return widget;
 }
 
-function createUpdateWidget(node) {
+function createCanvasUpdateWidget(node) {
   const widget = {
     name: "update",
     type: "custom",
@@ -502,7 +502,7 @@ function createUpdateWidget(node) {
       ctx.font = "12px Arial";
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
-      ctx.fillText("update", x + buttonWidth / 2, buttonY + buttonHeight / 2);
+      ctx.fillText("Update", x + buttonWidth / 2, buttonY + buttonHeight / 2);
       ctx.restore();
     },
 
@@ -540,6 +540,74 @@ function createUpdateWidget(node) {
 
   node.addCustomWidget(widget);
   return widget;
+}
+
+function createDomUpdateWidget(node) {
+  const row = document.createElement("div");
+  const button = document.createElement("button");
+
+  Object.assign(row.style, {
+    boxSizing: "border-box",
+    height: `${UPDATE_ROW_HEIGHT}px`,
+    padding: `2px 8px 4px ${UPDATE_LEFT_INSET}px`,
+    pointerEvents: "none",
+    width: "100%",
+  });
+
+  button.type = "button";
+  button.textContent = "Update";
+  Object.assign(button.style, {
+    appearance: "none",
+    background: "#355f82",
+    border: "1px solid #547fa3",
+    borderRadius: "4px",
+    boxSizing: "border-box",
+    color: "#ffffff",
+    cursor: "pointer",
+    font: "12px Arial, sans-serif",
+    height: "22px",
+    padding: "0 8px",
+    pointerEvents: "auto",
+    width: "100%",
+  });
+
+  for (const eventName of ["pointerdown", "mousedown", "pointerup", "mouseup"]) {
+    button.addEventListener(eventName, (event) => event.stopPropagation());
+  }
+  button.addEventListener("pointerdown", () => {
+    button.style.background = "#284b68";
+  });
+  button.addEventListener("pointerup", () => {
+    button.style.background = "#355f82";
+  });
+  button.addEventListener("pointercancel", () => {
+    button.style.background = "#355f82";
+  });
+  button.addEventListener("mouseleave", () => {
+    button.style.background = "#355f82";
+  });
+  button.addEventListener("click", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    queueThisNode(node);
+  });
+
+  row.appendChild(button);
+  const widget = node.addDOMWidget("update", "div", row, {
+    getValue: () => undefined,
+    hideOnZoom: false,
+  });
+  widget.serialize = false;
+  widget.computeSize = (width) => {
+    row.style.width = `${width}px`;
+    return [width, UPDATE_ROW_HEIGHT];
+  };
+  return widget;
+}
+
+function createUpdateWidget(node) {
+  if (typeof node.addDOMWidget === "function") return createDomUpdateWidget(node);
+  return createCanvasUpdateWidget(node);
 }
 
 function createPromptButtonsWidget(node) {
