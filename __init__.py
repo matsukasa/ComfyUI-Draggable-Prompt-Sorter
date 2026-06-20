@@ -1,8 +1,9 @@
-﻿import json
+import json
 from collections import Counter
 
 
 PROMPT_SEPARATOR = ", "
+STATE_VERSION = 2
 
 
 class AnyType(str):
@@ -19,25 +20,41 @@ def _split_prompt_text(text):
     return [part.strip() for part in str(text).split(",") if part.strip()]
 
 
-def _ordered_items_from_state(text, order_state):
+def _default_entries(text):
+    return [{"text": item, "enabled": True} for item in _split_prompt_text(text)]
+
+
+def _entries_from_state(text, order_state):
     source_items = _split_prompt_text(text)
     if not order_state:
-        return source_items
+        return _default_entries(text)
 
     try:
         state = json.loads(order_state)
     except (TypeError, json.JSONDecodeError):
-        return source_items
+        return _default_entries(text)
 
-    ordered_items = state.get("items")
-    if not isinstance(ordered_items, list):
-        return source_items
+    state_items = state.get("items")
+    if not isinstance(state_items, list):
+        return _default_entries(text)
 
-    ordered_items = [str(item).strip() for item in ordered_items if str(item).strip()]
-    if Counter(ordered_items) != Counter(source_items):
-        return source_items
+    entries = []
+    for item in state_items:
+        if isinstance(item, dict):
+            item_text = str(item.get("text", "")).strip()
+            enabled = bool(item.get("enabled", True))
+        else:
+            # Migrate the original string-only state as enabled entries.
+            item_text = str(item).strip()
+            enabled = True
 
-    return ordered_items
+        if item_text:
+            entries.append({"text": item_text, "enabled": enabled})
+
+    if Counter(entry["text"] for entry in entries) != Counter(source_items):
+        return _default_entries(text)
+
+    return entries
 
 
 class DraggablePromptSorter:
@@ -63,17 +80,19 @@ class DraggablePromptSorter:
     CATEGORY = "prompt"
 
     def sort_prompt(self, text, order_state=""):
-        items = _split_prompt_text(text)
-        ordered_items = _ordered_items_from_state(text, order_state)
-        output = PROMPT_SEPARATOR.join(ordered_items)
+        entries = _entries_from_state(text, order_state)
+        output = PROMPT_SEPARATOR.join(
+            entry["text"] for entry in entries if entry["enabled"]
+        )
 
         return {
             "ui": {
                 "prompt_flat_button_sorter": [
                     {
+                        "version": STATE_VERSION,
                         "source": str(text) if text is not None else "",
-                        "items": items,
-                        "ordered": ordered_items,
+                        "items": [entry["text"] for entry in entries],
+                        "entries": entries,
                     }
                 ]
             },
@@ -90,5 +109,3 @@ NODE_DISPLAY_NAME_MAPPINGS = {
 }
 
 WEB_DIRECTORY = "./web"
-
-
