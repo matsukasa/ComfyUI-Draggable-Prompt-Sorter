@@ -42,12 +42,30 @@ function hideWidget(widget) {
   widget.type = "converted-widget";
   widget.computeSize = () => [0, -4];
   widget.draw = () => {};
+  widget.hidden = true;
+  widget.visible = false;
   widget.serialize = true;
   widget.serializeValue = async () => widget.value;
   widget.options = { ...widget.options, hidden: true, serialize: true };
 
   for (const element of [widget.element, widget.inputEl, widget.el]) {
-    if (element?.style) element.style.display = "none";
+    if (!element) continue;
+    if (element.style) {
+      Object.assign(element.style, {
+        border: "0",
+        display: "none",
+        height: "0",
+        margin: "0",
+        maxHeight: "0",
+        minHeight: "0",
+        overflow: "hidden",
+        padding: "0",
+        pointerEvents: "none",
+        visibility: "hidden",
+        width: "0",
+      });
+    }
+    element.remove?.();
   }
 }
 
