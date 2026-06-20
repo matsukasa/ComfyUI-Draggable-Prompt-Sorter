@@ -39,8 +39,9 @@ function getWidget(node, name) {
 
 function hideWidget(widget) {
   if (!widget) return;
-  widget.type = "hidden";
+  // Keep the original widget type so ComfyUI continues to serialize its value.
   widget.computeSize = () => [0, -4];
+  widget.draw = () => {};
 }
 
 function sameTextMultiset(entries, texts) {
@@ -77,7 +78,7 @@ function writeState(node, entries) {
     version: STATE_VERSION,
     items: entries.map((entry) => ({ text: entry.text, enabled: entry.enabled })),
   });
-  widget.callback?.(widget.value);
+  node.graph?.change?.();
   node.graph?.setDirtyCanvas(true, true);
   node.setDirtyCanvas(true, true);
 }
@@ -483,8 +484,16 @@ app.registerExtension({
         : message?.prompt_flat_button_sorter;
 
       if (!payload || !this.promptButtonsWidget) return;
-      const entries = payload.entries ?? makeEntries(payload.items ?? []);
-      this.promptButtonsWidget.setEntries(entries);
+      const incomingEntries = normalizeEntries(payload.entries ?? makeEntries(payload.items ?? []));
+      const incomingTexts = incomingEntries.map((entry) => entry.text);
+      const currentState = readState(this);
+
+      if (currentState && sameTextMultiset(currentState.entries, incomingTexts)) {
+        this.promptButtonsWidget.setEntries(currentState.entries, false);
+        return;
+      }
+
+      this.promptButtonsWidget.setEntries(incomingEntries);
     };
   },
 });

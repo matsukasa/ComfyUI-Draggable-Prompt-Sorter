@@ -90,7 +90,6 @@ class DraggablePromptSorter:
                 "prompt_flat_button_sorter": [
                     {
                         "version": STATE_VERSION,
-                        "source": str(text) if text is not None else "",
                         "items": [entry["text"] for entry in entries],
                         "entries": entries,
                     }

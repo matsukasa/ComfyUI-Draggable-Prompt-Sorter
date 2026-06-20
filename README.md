@@ -60,9 +60,11 @@ blue eyes, masterpiece, 1girl
 ### 表示と状態
 
 - ボタンのテキストは省略されません。長いテキストはボタン内で折り返して全文表示します。
+- 前段ノードから受け取った生の入力文字列と内部状態欄は表示せず、各項目のボタンだけを表示します。
 - 入力項目が増減してもノードサイズは自動変更されません。ボタン領域を縦スクロールして確認できます。
 - ユーザーが手動で変更したノードサイズは、ボタン更新後も維持されます。
 - 順序とオン・オフ状態はワークフローに保存されます。
+- Queue / Runや`Update Buttons`を実行しても、入力項目が同じなら現在の順序とオン・オフ状態を維持します。
 - 入力内容が変わった場合、同じ項目が完全に揃っているときだけ保存済み状態を再利用します。それ以外は入力順・全オンで初期化します。
 - 同じテキストが複数ある場合も、それぞれ別のボタンとして操作できます。
 
@@ -128,8 +130,10 @@ blue eyes, masterpiece, 1girl
 ### Display and State
 
 - Button text is never truncated. Long text wraps inside the button and remains fully visible.
+- The raw upstream input and internal state fields are hidden; only item buttons are displayed.
 - The node does not resize when items change. Use the button area's vertical scrollbar when needed.
 - User-resized node dimensions are preserved when buttons update.
 - Button order and enabled state are saved in the workflow.
+- Queue / Run and `Update Buttons` preserve the current order and enabled state when the incoming items are unchanged.
 - Saved state is reused only when the incoming text contains exactly the same items. Otherwise, items reset to input order and enabled.
 - Duplicate text items remain separate buttons and can be controlled independently.
