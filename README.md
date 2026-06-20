@@ -33,7 +33,7 @@ cd ComfyUI\custom_nodes\ComfyUI-Draggable-Prompt-Sorter
 git pull --ff-only
 ```
 
-更新後はComfyUIを再起動し、ブラウザをハードリロードしてください。
+更新後はComfyUIを再起動し、ブラウザをリロードしてください。
 
 ### 使い方
 
@@ -60,7 +60,6 @@ blue eyes, masterpiece, 1girl
 ### 表示と状態
 
 - ボタンのテキストは省略されません。長いテキストはボタン内で折り返して全文表示します。
-- 前段ノードから受け取った生の入力文字列と内部状態欄は表示せず、各項目のボタンだけを表示します。
 - 入力項目が増減してもノードサイズは自動変更されません。ボタン領域を縦スクロールして確認できます。
 - ユーザーが手動で変更したノードサイズは、ボタン更新後も維持されます。
 - 順序とオン・オフ状態はワークフローに保存されます。
@@ -131,6 +130,8 @@ blue eyes, masterpiece, 1girl
 
 - Button text is never truncated. Long text wraps inside the button and remains fully visible.
 - The raw upstream input and internal state fields are hidden; only item buttons are displayed.
+- Internal JSON remains serialized in the workflow without being shown; only `Update Buttons` and item buttons are visible on the node.
+- `Update Buttons` uses a muted blue style and refreshes upstream input by executing only up to this node.
 - The node does not resize when items change. Use the button area's vertical scrollbar when needed.
 - User-resized node dimensions are preserved when buttons update.
 - Button order and enabled state are saved in the workflow.

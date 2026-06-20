@@ -39,9 +39,16 @@ function getWidget(node, name) {
 
 function hideWidget(widget) {
   if (!widget) return;
-  // Keep the original widget type so ComfyUI continues to serialize its value.
+  widget.type = "converted-widget";
   widget.computeSize = () => [0, -4];
   widget.draw = () => {};
+  widget.serialize = true;
+  widget.serializeValue = async () => widget.value;
+  widget.options = { ...widget.options, hidden: true, serialize: true };
+
+  for (const element of [widget.element, widget.inputEl, widget.el]) {
+    if (element?.style) element.style.display = "none";
+  }
 }
 
 function sameTextMultiset(entries, texts) {
@@ -459,7 +466,28 @@ app.registerExtension({
       hideWidget(getWidget(this, "text"));
       hideWidget(getWidget(this, "order_state"));
 
-      this.addWidget("button", "Update Buttons", "", () => queueThisNode(this));
+      const updateButton = this.addWidget(
+        "button",
+        "Update Buttons",
+        "",
+        () => queueThisNode(this),
+        {
+          color: "#355f82",
+          text_color: "#ffffff",
+          hover_color: "#426f96",
+          serialize: false,
+        }
+      );
+      updateButton.options = {
+        ...updateButton.options,
+        color: "#355f82",
+        text_color: "#ffffff",
+        hover_color: "#426f96",
+        serialize: false,
+      };
+      updateButton.color = "#355f82";
+      updateButton.bgcolor = "#355f82";
+      updateButton.textColor = "#ffffff";
       this.promptButtonsWidget = createPromptButtonsWidget(this);
 
       const textWidget = getWidget(this, "text");
