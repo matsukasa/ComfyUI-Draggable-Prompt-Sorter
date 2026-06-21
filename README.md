@@ -65,6 +65,7 @@ blue eyes, masterpiece, 1girl
 - 順序とオン・オフ状態はワークフローに保存されます。
 - Queue / Runや`Update`を実行しても、入力項目が同じなら現在の順序とオン・オフ状態を維持します。
 - `Update`は前段入力だけを再取得し、現在オフのボタンをオンへ戻しません。
+- `Update`はタイトルバー直下、そのすぐ下にタグボタン領域が表示されます。
 - 入力内容が変わった場合、同じ項目が完全に揃っているときだけ保存済み状態を再利用します。それ以外は入力順・全オンで初期化します。
 - 同じテキストが複数ある場合も、それぞれ別のボタンとして操作できます。
 
@@ -133,6 +134,7 @@ blue eyes, masterpiece, 1girl
 - The raw upstream input and internal state fields are hidden; only item buttons are displayed.
 - Internal JSON remains serialized in the workflow without being shown; only `Update` and item buttons are visible on the node.
 - `Update` appears directly below the title bar on the input socket row and refreshes upstream input by executing only up to this node.
+- The tag button area starts immediately below `Update` without an extra input-row gap.
 - The node does not resize when items change. Use the button area's vertical scrollbar when needed.
 - User-resized node dimensions are preserved when buttons update.
 - Button order and enabled state are saved in the workflow.

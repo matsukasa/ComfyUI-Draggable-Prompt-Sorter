@@ -6,6 +6,7 @@ const STATE_VERSION = 2;
 const BUTTON_VIEWPORT_HEIGHT = 160;
 const UPDATE_ROW_HEIGHT = 28;
 const UPDATE_LEFT_INSET = 76;
+const WIDGETS_START_Y = 1;
 
 function splitPromptText(text) {
   return String(text ?? "")
@@ -569,7 +570,7 @@ function createDomUpdateWidget(node) {
   Object.assign(row.style, {
     boxSizing: "border-box",
     height: `${UPDATE_ROW_HEIGHT}px`,
-    padding: `2px 8px 4px ${UPDATE_LEFT_INSET}px`,
+    padding: `1px 8px 3px ${UPDATE_LEFT_INSET}px`,
     pointerEvents: "none",
     width: "100%",
   });
@@ -655,7 +656,7 @@ app.registerExtension({
       hideWidget(getWidget(this, "text"));
       hideWidget(getWidget(this, "order_state"));
 
-      this.widgets_start_y = 0;
+      this.widgets_start_y = WIDGETS_START_Y;
       const updateWidget = createUpdateWidget(this);
       this.promptButtonsWidget = createPromptButtonsWidget(this);
       moveVisibleWidgetsFirst(this, updateWidget, this.promptButtonsWidget);
@@ -667,6 +668,7 @@ app.registerExtension({
     const onConfigure = nodeType.prototype.onConfigure;
     nodeType.prototype.onConfigure = function () {
       onConfigure?.apply(this, arguments);
+      this.widgets_start_y = WIDGETS_START_Y;
       const state = readState(this);
       if (state?.entries && this.promptButtonsWidget) {
         this.promptButtonsWidget.setEntries(state.entries, false);
