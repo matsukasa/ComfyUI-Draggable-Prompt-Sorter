@@ -131,11 +131,22 @@ function preserveNodeSize(node, callback) {
   });
 }
 
+function getCurrentUiEntries(node) {
+  return normalizeEntries(node.promptButtonsWidget?.getEntries?.() ?? []);
+}
+
+function syncCurrentUiState(node) {
+  const entries = getCurrentUiEntries(node);
+  if (entries.length) writeState(node, entries);
+  return entries;
+}
+
 async function queueThisNode(node) {
   try {
     if (typeof app.queuePrompt !== "function") {
       throw new Error("app.queuePrompt is not available in this ComfyUI frontend.");
     }
+    syncCurrentUiState(node);
     await app.queuePrompt(-1, 1, [String(node.id)]);
   } catch (error) {
     console.error("Draggable Prompt Sorter: failed to update buttons", error);
@@ -257,6 +268,10 @@ function createDomButtonsWidget(node) {
   const api = {
     entries: [],
 
+    getEntries() {
+      return this.entries.map((entry) => ({ ...entry }));
+    },
+
     setEntries(entries, save = true) {
       this.entries = normalizeEntries(entries);
       if (save) writeState(node, this.entries);
@@ -302,6 +317,7 @@ function createDomButtonsWidget(node) {
 
   widget.serialize = false;
   widget.computeSize = (width) => [width, BUTTON_VIEWPORT_HEIGHT + 12];
+  widget.getEntries = api.getEntries.bind(api);
   widget.setEntries = api.setEntries.bind(api);
   widget.setSourceItems = api.setSourceItems.bind(api);
   widget.render = api.render.bind(api);
@@ -358,6 +374,10 @@ function createCanvasButtonsWidget(node) {
 
     computeSize(width) {
       return [width, BUTTON_VIEWPORT_HEIGHT + 12];
+    },
+
+    getEntries() {
+      return this.entries.map((entry) => ({ ...entry }));
     },
 
     setEntries(entries, save = true) {
@@ -664,10 +684,12 @@ app.registerExtension({
       if (!payload || !this.promptButtonsWidget) return;
       const incomingEntries = normalizeEntries(payload.entries ?? makeEntries(payload.items ?? []));
       const incomingTexts = incomingEntries.map((entry) => entry.text);
-      const currentState = readState(this);
+      const currentUiEntries = getCurrentUiEntries(this);
+      const savedEntries = readState(this)?.entries ?? [];
+      const preferredEntries = currentUiEntries.length ? currentUiEntries : savedEntries;
 
-      if (currentState && sameTextMultiset(currentState.entries, incomingTexts)) {
-        this.promptButtonsWidget.setEntries(currentState.entries, false);
+      if (preferredEntries.length && sameTextMultiset(preferredEntries, incomingTexts)) {
+        this.promptButtonsWidget.setEntries(preferredEntries, false);
         return;
       }
 
