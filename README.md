@@ -6,7 +6,10 @@ ComfyUI用のカスタムノードです。前段ノードからカンマ区切�
 
 ### インストール
 
-#### ComfyUI-Manager
+#### Comfy Registry / ComfyUI-Manager
+
+このカスタムノードは[Comfy Registry](https://registry.comfy.org/ja/publishers/matsukasa/nodes/draggable-prompt-sorter)に公開済みです。
+ComfyUI-Managerの`Custom Nodes Manager`から検索してインストールできます。
 
 1. ComfyUI-Managerの`Custom Nodes Manager`を開きます。
 2. `Draggable Prompt Sorter`を検索して`Install`を押します。
@@ -83,7 +86,10 @@ A custom node for ComfyUI. It receives a comma-separated string from an upstream
 
 ### Installation
 
-#### ComfyUI-Manager
+#### Comfy Registry / ComfyUI-Manager
+
+This custom node is published on the [Comfy Registry](https://registry.comfy.org/publishers/matsukasa/nodes/draggable-prompt-sorter)
+and can be installed through `Custom Nodes Manager` in ComfyUI-Manager.
 
 1. Open `Custom Nodes Manager` in ComfyUI-Manager.
 2. Search for `Draggable Prompt Sorter` and select `Install`.
