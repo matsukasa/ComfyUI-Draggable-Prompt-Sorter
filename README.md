@@ -6,6 +6,14 @@ ComfyUI用のカスタムノードです。前段ノードからカンマ区切�
 
 ### インストール
 
+#### ComfyUI-Manager
+
+1. ComfyUI-Managerの`Custom Nodes Manager`を開きます。
+2. `Draggable Prompt Sorter`を検索して`Install`を押します。
+3. ComfyUIを再起動し、ブラウザを再読み込みしてください。
+
+#### Gitから手動でインストール
+
 ComfyUIの `custom_nodes` ディレクトリでcloneします。
 
 ```powershell
@@ -74,6 +82,14 @@ blue eyes, masterpiece, 1girl
 A custom node for ComfyUI. It receives a comma-separated string from an upstream node and displays each item as a draggable button. Buttons can be toggled on or off, and only enabled items are passed to the next node in the current order.
 
 ### Installation
+
+#### ComfyUI-Manager
+
+1. Open `Custom Nodes Manager` in ComfyUI-Manager.
+2. Search for `Draggable Prompt Sorter` and select `Install`.
+3. Restart ComfyUI and reload the browser.
+
+#### Manual installation from Git
 
 Clone the repository inside ComfyUI's `custom_nodes` directory.
 

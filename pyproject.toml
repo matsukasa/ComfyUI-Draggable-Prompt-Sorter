@@ -1,0 +1,14 @@
+[project]
+name = "draggable-prompt-sorter"
+version = "1.0.0"
+description = "Reorder and toggle comma-separated prompt items with draggable buttons in ComfyUI."
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = []
+
+[project.urls]
+Repository = "https://github.com/matsukasa/ComfyUI-Draggable-Prompt-Sorter"
+
+[tool.comfy]
+PublisherId = "matsukasa"
+DisplayName = "Draggable Prompt Sorter"
