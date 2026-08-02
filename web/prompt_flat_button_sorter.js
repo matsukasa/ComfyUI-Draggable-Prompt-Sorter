@@ -4,7 +4,7 @@ const EXTENSION_NAME = "draggablePromptSorter.draggablePromptSorter";
 const NODE_NAME = "DraggablePromptSorter";
 const STATE_VERSION = 2;
 const BUTTON_VIEWPORT_HEIGHT = 160;
-const UPDATE_ROW_HEIGHT = 28;
+const UPDATE_ROW_HEIGHT = 22;
 const UPDATE_LEFT_INSET = 76;
 const WIDGETS_START_Y = 1;
 
@@ -247,8 +247,69 @@ function createButtonElement(entry, index, onMove, onToggle) {
   return button;
 }
 
-function createDomButtonsWidget(node) {
+function createDomControlsWidget(node) {
+  const controls = document.createElement("div");
+  const updateRow = document.createElement("div");
+  const updateButton = document.createElement("button");
   const container = document.createElement("div");
+  Object.assign(controls.style, {
+    boxSizing: "border-box",
+    display: "flex",
+    flexDirection: "column",
+    gap: "0",
+    height: `${UPDATE_ROW_HEIGHT + BUTTON_VIEWPORT_HEIGHT}px`,
+    overflow: "hidden",
+    width: "100%",
+  });
+
+  Object.assign(updateRow.style, {
+    boxSizing: "border-box",
+    flex: `0 0 ${UPDATE_ROW_HEIGHT}px`,
+    height: `${UPDATE_ROW_HEIGHT}px`,
+    padding: `0 8px 0 ${UPDATE_LEFT_INSET}px`,
+    pointerEvents: "none",
+    width: "100%",
+  });
+
+  updateButton.type = "button";
+  updateButton.textContent = "Update";
+  Object.assign(updateButton.style, {
+    appearance: "none",
+    background: "#355f82",
+    border: "1px solid #547fa3",
+    borderRadius: "4px",
+    boxSizing: "border-box",
+    color: "#ffffff",
+    cursor: "pointer",
+    font: "12px Arial, sans-serif",
+    height: `${UPDATE_ROW_HEIGHT}px`,
+    padding: "0 8px",
+    pointerEvents: "auto",
+    width: "100%",
+  });
+
+  for (const eventName of ["pointerdown", "mousedown", "pointerup", "mouseup"]) {
+    updateButton.addEventListener(eventName, (event) => event.stopPropagation());
+  }
+  updateButton.addEventListener("pointerdown", () => {
+    updateButton.style.background = "#284b68";
+  });
+  updateButton.addEventListener("pointerup", () => {
+    updateButton.style.background = "#355f82";
+  });
+  updateButton.addEventListener("pointercancel", () => {
+    updateButton.style.background = "#355f82";
+  });
+  updateButton.addEventListener("mouseleave", () => {
+    updateButton.style.background = "#355f82";
+  });
+  updateButton.addEventListener("click", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    queueThisNode(node);
+  });
+
+  updateRow.appendChild(updateButton);
   Object.assign(container.style, {
     alignContent: "flex-start",
     boxSizing: "border-box",
@@ -258,7 +319,7 @@ function createDomButtonsWidget(node) {
     height: `${BUTTON_VIEWPORT_HEIGHT}px`,
     overflowX: "hidden",
     overflowY: "auto",
-    padding: "4px 8px 8px",
+    padding: "0 8px 8px",
     width: "100%",
   });
 
@@ -311,13 +372,14 @@ function createDomButtonsWidget(node) {
     },
   };
 
-  const widget = node.addDOMWidget("prompt_buttons", "div", container, {
+  controls.append(updateRow, container);
+  const widget = node.addDOMWidget("prompt_buttons", "div", controls, {
     getValue: () => api.entries,
     setValue: (value) => api.setEntries(value, false),
   });
 
   widget.serialize = false;
-  widget.computeSize = (width) => [width, BUTTON_VIEWPORT_HEIGHT + 12];
+  widget.computeSize = (width) => [width, UPDATE_ROW_HEIGHT + BUTTON_VIEWPORT_HEIGHT + 12];
   widget.getEntries = api.getEntries.bind(api);
   widget.setEntries = api.setEntries.bind(api);
   widget.setSourceItems = api.setSourceItems.bind(api);
@@ -348,7 +410,7 @@ function layoutCanvasButtons(ctx, entries, width) {
   const buttonWidth = Math.max(80, width - 16);
   const textWidth = Math.max(48, buttonWidth - 18);
   const layout = [];
-  let y = 4;
+  let y = 0;
 
   ctx.font = "12px Arial";
   for (const [index, entry] of entries.entries()) {
@@ -361,7 +423,7 @@ function layoutCanvasButtons(ctx, entries, width) {
   return { buttons: layout, contentHeight: Math.max(0, y - gap + 4) };
 }
 
-function createCanvasButtonsWidget(node) {
+function createCanvasControlsWidget(node) {
   const widget = {
     name: "prompt_buttons",
     type: "custom",
@@ -372,9 +434,11 @@ function createCanvasButtonsWidget(node) {
     scrollOffset: 0,
     dragIndex: null,
     didDrag: false,
+    updatePressed: false,
+    updateBounds: null,
 
     computeSize(width) {
-      return [width, BUTTON_VIEWPORT_HEIGHT + 12];
+      return [width, UPDATE_ROW_HEIGHT + BUTTON_VIEWPORT_HEIGHT + 12];
     },
 
     getEntries() {
@@ -405,11 +469,30 @@ function createCanvasButtonsWidget(node) {
       this.contentHeight = contentHeight;
       this.scrollOffset = Math.min(this.scrollOffset, this.maxScroll());
 
+      const updateX = Math.min(UPDATE_LEFT_INSET, Math.max(52, width - 48));
+      const updateWidth = Math.max(36, width - updateX - 8);
+      this.updateBounds = { x: updateX, y, w: updateWidth, h: UPDATE_ROW_HEIGHT };
+
+      ctx.save();
+      ctx.fillStyle = this.updatePressed ? "#284b68" : "#355f82";
+      ctx.strokeStyle = this.updatePressed ? "#78a4c8" : "#547fa3";
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.roundRect(updateX, y, updateWidth, UPDATE_ROW_HEIGHT, 4);
+      ctx.fill();
+      ctx.stroke();
+      ctx.fillStyle = "#ffffff";
+      ctx.font = "12px Arial";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText("Update", updateX + updateWidth / 2, y + UPDATE_ROW_HEIGHT / 2);
+      ctx.restore();
+
       ctx.save();
       ctx.beginPath();
-      ctx.rect(0, y, width, BUTTON_VIEWPORT_HEIGHT);
+      ctx.rect(0, y + UPDATE_ROW_HEIGHT, width, BUTTON_VIEWPORT_HEIGHT);
       ctx.clip();
-      ctx.translate(0, y - this.scrollOffset);
+      ctx.translate(0, y + UPDATE_ROW_HEIGHT - this.scrollOffset);
 
       for (const rect of buttons) {
         const entry = this.entries[rect.index];
@@ -435,13 +518,41 @@ function createCanvasButtonsWidget(node) {
     },
 
     mouse(event, pos) {
+      const updateHit =
+        this.updateBounds &&
+        pos[0] >= this.updateBounds.x &&
+        pos[0] <= this.updateBounds.x + this.updateBounds.w &&
+        pos[1] >= this.updateBounds.y &&
+        pos[1] <= this.updateBounds.y + this.updateBounds.h;
+
+      if ((event.type === "pointerdown" || event.type === "mousedown") && updateHit) {
+        this.updatePressed = true;
+        node.setDirtyCanvas(true, true);
+        return true;
+      }
+
+      if (
+        this.updatePressed &&
+        (event.type === "pointerup" ||
+          event.type === "mouseup" ||
+          event.type === "pointercancel" ||
+          event.type === "mouseleave")
+      ) {
+        const shouldUpdate =
+          updateHit && event.type !== "pointercancel" && event.type !== "mouseleave";
+        this.updatePressed = false;
+        node.setDirtyCanvas(true, true);
+        if (shouldUpdate) queueThisNode(node);
+        return true;
+      }
+
       if (event.type === "wheel") {
         this.scrollOffset = Math.max(0, Math.min(this.maxScroll(), this.scrollOffset + event.deltaY));
         node.setDirtyCanvas(true, true);
         return true;
       }
 
-      const contentY = pos[1] - this.y + this.scrollOffset;
+      const contentY = pos[1] - this.y - UPDATE_ROW_HEIGHT + this.scrollOffset;
       const hit = this.lastLayout.find(
         (rect) =>
           pos[0] >= rect.x &&
@@ -489,158 +600,14 @@ function createCanvasButtonsWidget(node) {
   return widget;
 }
 
-function createCanvasUpdateWidget(node) {
-  const widget = {
-    name: "update",
-    type: "custom",
-    y: 0,
-    pressed: false,
-    bounds: null,
-    serialize: false,
-
-    computeSize(width) {
-      return [width, UPDATE_ROW_HEIGHT];
-    },
-
-    draw(ctx, _node, width, y) {
-      this.y = y;
-      const x = Math.min(UPDATE_LEFT_INSET, Math.max(52, width - 48));
-      const buttonWidth = Math.max(36, width - x - 8);
-      const buttonHeight = 22;
-      const buttonY = y + 2;
-      this.bounds = { x, y: buttonY, w: buttonWidth, h: buttonHeight };
-
-      ctx.save();
-      ctx.fillStyle = this.pressed ? "#284b68" : "#355f82";
-      ctx.strokeStyle = this.pressed ? "#78a4c8" : "#547fa3";
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.roundRect(x, buttonY, buttonWidth, buttonHeight, 4);
-      ctx.fill();
-      ctx.stroke();
-
-      ctx.fillStyle = "#ffffff";
-      ctx.font = "12px Arial";
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-      ctx.fillText("Update", x + buttonWidth / 2, buttonY + buttonHeight / 2);
-      ctx.restore();
-    },
-
-    mouse(event, pos) {
-      if (!this.bounds) return false;
-      const hit =
-        pos[0] >= this.bounds.x &&
-        pos[0] <= this.bounds.x + this.bounds.w &&
-        pos[1] >= this.bounds.y &&
-        pos[1] <= this.bounds.y + this.bounds.h;
-
-      if ((event.type === "pointerdown" || event.type === "mousedown") && hit) {
-        this.pressed = true;
-        node.setDirtyCanvas(true, true);
-        return true;
-      }
-
-      if (event.type === "pointerup" || event.type === "mouseup") {
-        const shouldUpdate = this.pressed && hit;
-        this.pressed = false;
-        node.setDirtyCanvas(true, true);
-        if (shouldUpdate) queueThisNode(node);
-        return shouldUpdate;
-      }
-
-      if (event.type === "pointercancel" || event.type === "mouseleave") {
-        this.pressed = false;
-        node.setDirtyCanvas(true, true);
-        return true;
-      }
-
-      return hit;
-    },
-  };
-
-  node.addCustomWidget(widget);
-  return widget;
+function createControlsWidget(node) {
+  if (typeof node.addDOMWidget === "function") return createDomControlsWidget(node);
+  return createCanvasControlsWidget(node);
 }
 
-function createDomUpdateWidget(node) {
-  const row = document.createElement("div");
-  const button = document.createElement("button");
-
-  Object.assign(row.style, {
-    boxSizing: "border-box",
-    height: `${UPDATE_ROW_HEIGHT}px`,
-    padding: `1px 8px 3px ${UPDATE_LEFT_INSET}px`,
-    pointerEvents: "none",
-    width: "100%",
-  });
-
-  button.type = "button";
-  button.textContent = "Update";
-  Object.assign(button.style, {
-    appearance: "none",
-    background: "#355f82",
-    border: "1px solid #547fa3",
-    borderRadius: "4px",
-    boxSizing: "border-box",
-    color: "#ffffff",
-    cursor: "pointer",
-    font: "12px Arial, sans-serif",
-    height: "22px",
-    padding: "0 8px",
-    pointerEvents: "auto",
-    width: "100%",
-  });
-
-  for (const eventName of ["pointerdown", "mousedown", "pointerup", "mouseup"]) {
-    button.addEventListener(eventName, (event) => event.stopPropagation());
-  }
-  button.addEventListener("pointerdown", () => {
-    button.style.background = "#284b68";
-  });
-  button.addEventListener("pointerup", () => {
-    button.style.background = "#355f82";
-  });
-  button.addEventListener("pointercancel", () => {
-    button.style.background = "#355f82";
-  });
-  button.addEventListener("mouseleave", () => {
-    button.style.background = "#355f82";
-  });
-  button.addEventListener("click", (event) => {
-    event.preventDefault();
-    event.stopPropagation();
-    queueThisNode(node);
-  });
-
-  row.appendChild(button);
-  const widget = node.addDOMWidget("update", "div", row, {
-    getValue: () => undefined,
-    hideOnZoom: false,
-  });
-  widget.serialize = false;
-  widget.computeSize = (width) => {
-    row.style.width = `${width}px`;
-    return [width, UPDATE_ROW_HEIGHT];
-  };
-  return widget;
-}
-
-function createUpdateWidget(node) {
-  if (typeof node.addDOMWidget === "function") return createDomUpdateWidget(node);
-  return createCanvasUpdateWidget(node);
-}
-
-function createPromptButtonsWidget(node) {
-  if (typeof node.addDOMWidget === "function") return createDomButtonsWidget(node);
-  return createCanvasButtonsWidget(node);
-}
-
-function moveVisibleWidgetsFirst(node, updateWidget, promptWidget) {
-  const remainingWidgets = node.widgets.filter(
-    (widget) => widget !== updateWidget && widget !== promptWidget
-  );
-  node.widgets = [updateWidget, promptWidget, ...remainingWidgets];
+function moveVisibleWidgetFirst(node, promptWidget) {
+  const remainingWidgets = node.widgets.filter((widget) => widget !== promptWidget);
+  node.widgets = [promptWidget, ...remainingWidgets];
 }
 
 app.registerExtension({
@@ -657,9 +624,8 @@ app.registerExtension({
       hideWidget(getWidget(this, "order_state"));
 
       this.widgets_start_y = WIDGETS_START_Y;
-      const updateWidget = createUpdateWidget(this);
-      this.promptButtonsWidget = createPromptButtonsWidget(this);
-      moveVisibleWidgetsFirst(this, updateWidget, this.promptButtonsWidget);
+      this.promptButtonsWidget = createControlsWidget(this);
+      moveVisibleWidgetFirst(this, this.promptButtonsWidget);
 
       const textWidget = getWidget(this, "text");
       if (textWidget?.value) this.promptButtonsWidget.setSourceItems(splitPromptText(textWidget.value));
