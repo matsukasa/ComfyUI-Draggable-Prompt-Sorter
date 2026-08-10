@@ -111,12 +111,23 @@ function writeState(node, entries) {
   node.setDirtyCanvas(true, true);
 }
 
-function reorder(entries, fromIndex, toIndex) {
-  if (fromIndex === toIndex || fromIndex < 0 || toIndex < 0) return entries;
+function reorder(entries, fromIndex, targetIndex, position = "before") {
+  if (fromIndex === targetIndex || fromIndex < 0 || targetIndex < 0) return entries;
   const next = entries.map((entry) => ({ ...entry }));
   const [moved] = next.splice(fromIndex, 1);
-  next.splice(toIndex, 0, moved);
+  let insertionIndex = targetIndex + (position === "after" ? 1 : 0);
+  if (fromIndex < insertionIndex) insertionIndex -= 1;
+  next.splice(insertionIndex, 0, moved);
   return next;
+}
+
+function fitNodeToContent(node) {
+  requestAnimationFrame(() => {
+    const computedSize = node.computeSize?.();
+    if (!Array.isArray(computedSize) || !Array.isArray(node.size)) return;
+    node.setSize([node.size[0], computedSize[1]]);
+    node.setDirtyCanvas(true, true);
+  });
 }
 
 function preserveNodeSize(node, callback) {
@@ -165,7 +176,7 @@ function applyButtonStyle(button, entry, dragState = "idle") {
   button.style.textDecoration = entry.enabled ? "none" : "line-through";
 }
 
-function createButtonElement(entry, index, onMove, onToggle) {
+function createButtonElement(entry, index, onMove, onToggle, clearDropState) {
   const button = document.createElement("button");
   let suppressClickUntil = 0;
 
@@ -219,6 +230,7 @@ function createButtonElement(entry, index, onMove, onToggle) {
 
   button.addEventListener("dragend", (event) => {
     event.stopPropagation();
+    clearDropState();
     button.style.cursor = "grab";
     applyButtonStyle(button, entry);
     suppressClickUntil = performance.now() + 250;
@@ -228,20 +240,26 @@ function createButtonElement(entry, index, onMove, onToggle) {
     event.preventDefault();
     event.stopPropagation();
     event.dataTransfer.dropEffect = "move";
+    clearDropState();
+    const bounds = button.getBoundingClientRect();
+    const position = event.clientX >= bounds.left + bounds.width / 2 ? "after" : "before";
+    button.dataset.dropPosition = position;
+    button.style.boxShadow = position === "after" ? "4px 0 0 #b9dcff" : "-4px 0 0 #b9dcff";
     applyButtonStyle(button, entry, "target");
   });
 
   button.addEventListener("dragleave", (event) => {
     event.stopPropagation();
-    applyButtonStyle(button, entry);
+    if (!button.contains(event.relatedTarget)) clearDropState();
   });
 
   button.addEventListener("drop", (event) => {
     event.preventDefault();
     event.stopPropagation();
-    applyButtonStyle(button, entry);
     const fromIndex = Number(event.dataTransfer.getData("text/plain"));
-    onMove(fromIndex, index);
+    const position = button.dataset.dropPosition === "after" ? "after" : "before";
+    clearDropState();
+    onMove(fromIndex, index, position);
   });
 
   return button;
@@ -348,13 +366,21 @@ function createDomControlsWidget(node) {
 
     render() {
       container.replaceChildren();
+      const clearDropState = () => {
+        for (const item of container.children) {
+          delete item.dataset.dropPosition;
+          item.style.boxShadow = "none";
+          const itemIndex = Number(item.dataset.index);
+          if (this.entries[itemIndex]) applyButtonStyle(item, this.entries[itemIndex]);
+        }
+      };
       for (const [index, entry] of this.entries.entries()) {
         container.appendChild(
           createButtonElement(
             entry,
             index,
-            (fromIndex, toIndex) => {
-              this.entries = reorder(this.entries, fromIndex, toIndex);
+            (fromIndex, targetIndex, position) => {
+              this.entries = reorder(this.entries, fromIndex, targetIndex, position);
               writeState(node, this.entries);
               preserveNodeSize(node, () => this.render());
             },
@@ -364,7 +390,8 @@ function createDomControlsWidget(node) {
               );
               writeState(node, this.entries);
               preserveNodeSize(node, () => this.render());
-            }
+            },
+            clearDropState
           )
         );
       }
@@ -433,6 +460,7 @@ function createCanvasControlsWidget(node) {
     contentHeight: 0,
     scrollOffset: 0,
     dragIndex: null,
+    dropTarget: null,
     didDrag: false,
     updatePressed: false,
     updateBounds: null,
@@ -514,6 +542,19 @@ function createCanvasControlsWidget(node) {
         });
         ctx.globalAlpha = 1;
       }
+
+      if (this.dropTarget) {
+        const target = buttons.find((rect) => rect.index === this.dropTarget.index);
+        if (target) {
+          const indicatorX = this.dropTarget.position === "after" ? target.x + target.w + 2 : target.x - 2;
+          ctx.strokeStyle = "#b9dcff";
+          ctx.lineWidth = 4;
+          ctx.beginPath();
+          ctx.moveTo(indicatorX, target.y + 2);
+          ctx.lineTo(indicatorX, target.y + target.h - 2);
+          ctx.stroke();
+        }
+      }
       ctx.restore();
     },
 
@@ -568,18 +609,21 @@ function createCanvasControlsWidget(node) {
       }
 
       if (event.type === "pointermove" || event.type === "mousemove") {
-        if (this.dragIndex !== null && hit && hit.index !== this.dragIndex) {
-          this.entries = reorder(this.entries, this.dragIndex, hit.index);
-          this.dragIndex = hit.index;
-          this.didDrag = true;
-          writeState(node, this.entries);
+        if (this.dragIndex !== null) {
+          this.didDrag = this.didDrag || Boolean(hit && hit.index !== this.dragIndex);
+          this.dropTarget = hit && hit.index !== this.dragIndex
+            ? { index: hit.index, position: pos[0] >= hit.x + hit.w / 2 ? "after" : "before" }
+            : null;
         }
         node.setDirtyCanvas(true, true);
         return this.dragIndex !== null || Boolean(hit);
       }
 
       if (event.type === "pointerup" || event.type === "mouseup" || event.type === "pointercancel") {
-        if (!this.didDrag && this.dragIndex !== null && hit?.index === this.dragIndex) {
+        if (event.type !== "pointercancel" && this.dragIndex !== null && this.dropTarget) {
+          this.entries = reorder(this.entries, this.dragIndex, this.dropTarget.index, this.dropTarget.position);
+          writeState(node, this.entries);
+        } else if (!this.didDrag && this.dragIndex !== null && hit?.index === this.dragIndex) {
           this.entries[this.dragIndex] = {
             ...this.entries[this.dragIndex],
             enabled: !this.entries[this.dragIndex].enabled,
@@ -587,6 +631,7 @@ function createCanvasControlsWidget(node) {
           writeState(node, this.entries);
         }
         this.dragIndex = null;
+        this.dropTarget = null;
         this.didDrag = false;
         node.setDirtyCanvas(true, true);
         return true;
@@ -629,6 +674,7 @@ app.registerExtension({
 
       const textWidget = getWidget(this, "text");
       if (textWidget?.value) this.promptButtonsWidget.setSourceItems(splitPromptText(textWidget.value));
+      fitNodeToContent(this);
     };
 
     const onConfigure = nodeType.prototype.onConfigure;
@@ -639,6 +685,7 @@ app.registerExtension({
       if (state?.entries && this.promptButtonsWidget) {
         this.promptButtonsWidget.setEntries(state.entries, false);
       }
+      fitNodeToContent(this);
     };
 
     const onExecuted = nodeType.prototype.onExecuted;
