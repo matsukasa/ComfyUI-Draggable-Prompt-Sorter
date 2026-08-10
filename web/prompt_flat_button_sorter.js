@@ -122,25 +122,26 @@ function reorder(entries, fromIndex, targetIndex, position = "before") {
   return next;
 }
 
+function getRequiredNodeHeight(node, width = node.size?.[0]) {
+  const widget = node.promptButtonsWidget;
+  const widgetSize = widget?.computeSize?.(width);
+  if (!Array.isArray(widgetSize)) return null;
+  const widgetY = Number.isFinite(widget.y) ? widget.y : WIDGETS_START_Y;
+  return Math.ceil(widgetY + widgetSize[1] + 4);
+}
+
 function fitNodeToContent(node) {
-  const fit = (remainingAttempts) => {
-    requestAnimationFrame(() => {
-      const widget = node.promptButtonsWidget;
-      if (!widget || !Array.isArray(node.size)) return;
-      const widgetSize = widget.computeSize?.(node.size[0]);
-      if (!Array.isArray(widgetSize)) return;
-      const widgetY = Number.isFinite(widget.y) ? widget.y : WIDGETS_START_Y;
-      const requiredHeight = Math.ceil(widgetY + widgetSize[1] + 4);
-      if (requiredHeight > 0 && node.size[1] !== requiredHeight) {
-        node.setSize([node.size[0], requiredHeight]);
-      }
-      node.setDirtyCanvas(true, true);
-      if (remainingAttempts > 0) fit(remainingAttempts - 1);
-    });
+  const fit = () => {
+    const requiredHeight = getRequiredNodeHeight(node);
+    if (!requiredHeight || !Array.isArray(node.size)) return;
+    if (node.size[1] !== requiredHeight) node.setSize([node.size[0], requiredHeight]);
+    node.setDirtyCanvas(true, true);
   };
 
   node.setDirtyCanvas(true, true);
-  fit(1);
+  requestAnimationFrame(fit);
+  window.setTimeout(fit, 0);
+  window.setTimeout(fit, 100);
 }
 
 function preserveNodeSize(node, callback) {
@@ -289,6 +290,7 @@ function createButtonElement(entry, index, onMove, onToggle, onEdit, clearDropSt
 }
 
 function createDomControlsWidget(node) {
+  const controlsHeight = UPDATE_ROW_HEIGHT + BUTTON_VIEWPORT_HEIGHT;
   const controls = document.createElement("div");
   const updateRow = document.createElement("div");
   const updateButton = document.createElement("button");
@@ -298,7 +300,7 @@ function createDomControlsWidget(node) {
     display: "flex",
     flexDirection: "column",
     gap: "0",
-    height: `${UPDATE_ROW_HEIGHT + BUTTON_VIEWPORT_HEIGHT}px`,
+    height: `${controlsHeight}px`,
     overflow: "hidden",
     width: "100%",
   });
@@ -473,11 +475,18 @@ function createDomControlsWidget(node) {
   controls.append(updateRow, container);
   const widget = node.addDOMWidget("prompt_buttons", "div", controls, {
     getValue: () => api.entries,
+    getMaxHeight: () => controlsHeight,
+    getMinHeight: () => controlsHeight,
     setValue: (value) => api.setEntries(value, false),
   });
 
   widget.serialize = false;
-  widget.computeSize = (width) => [width, UPDATE_ROW_HEIGHT + BUTTON_VIEWPORT_HEIGHT + 12];
+  widget.computeLayoutSize = () => ({
+    minHeight: controlsHeight,
+    maxHeight: controlsHeight,
+    minWidth: 0,
+  });
+  widget.computeSize = (width) => [width, controlsHeight + 12];
   widget.getEntries = api.getEntries.bind(api);
   widget.setEntries = api.setEntries.bind(api);
   widget.setSourceItems = api.setSourceItems.bind(api);
@@ -782,6 +791,22 @@ app.registerExtension({
         this.promptButtonsWidget.setEntries(state.entries, false);
       }
       fitNodeToContent(this);
+    };
+
+    const onAdded = nodeType.prototype.onAdded;
+    nodeType.prototype.onAdded = function () {
+      onAdded?.apply(this, arguments);
+      fitNodeToContent(this);
+    };
+
+    const onResize = nodeType.prototype.onResize;
+    nodeType.prototype.onResize = function (size) {
+      onResize?.apply(this, arguments);
+      const requiredHeight = getRequiredNodeHeight(this, size?.[0]);
+      if (!requiredHeight || !Array.isArray(size)) return;
+      size[1] = requiredHeight;
+      if (Array.isArray(this.size)) this.size[1] = requiredHeight;
+      this.setDirtyCanvas(true, true);
     };
 
     const onExecuted = nodeType.prototype.onExecuted;
