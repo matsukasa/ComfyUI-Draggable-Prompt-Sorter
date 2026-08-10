@@ -7,6 +7,7 @@ const BUTTON_VIEWPORT_HEIGHT = 160;
 const UPDATE_ROW_HEIGHT = 22;
 const UPDATE_LEFT_INSET = 76;
 const WIDGETS_START_Y = 1;
+const SINGLE_CLICK_DELAY_MS = 450;
 
 function splitPromptText(text) {
   return String(text ?? "")
@@ -122,12 +123,24 @@ function reorder(entries, fromIndex, targetIndex, position = "before") {
 }
 
 function fitNodeToContent(node) {
-  requestAnimationFrame(() => {
-    const computedSize = node.computeSize?.();
-    if (!Array.isArray(computedSize) || !Array.isArray(node.size)) return;
-    node.setSize([node.size[0], computedSize[1]]);
-    node.setDirtyCanvas(true, true);
-  });
+  const fit = (remainingAttempts) => {
+    requestAnimationFrame(() => {
+      const widget = node.promptButtonsWidget;
+      if (!widget || !Array.isArray(node.size)) return;
+      const widgetSize = widget.computeSize?.(node.size[0]);
+      if (!Array.isArray(widgetSize)) return;
+      const widgetY = Number.isFinite(widget.y) ? widget.y : WIDGETS_START_Y;
+      const requiredHeight = Math.ceil(widgetY + widgetSize[1] + 4);
+      if (requiredHeight > 0 && node.size[1] !== requiredHeight) {
+        node.setSize([node.size[0], requiredHeight]);
+      }
+      node.setDirtyCanvas(true, true);
+      if (remainingAttempts > 0) fit(remainingAttempts - 1);
+    });
+  };
+
+  node.setDirtyCanvas(true, true);
+  fit(1);
 }
 
 function preserveNodeSize(node, callback) {
@@ -176,9 +189,10 @@ function applyButtonStyle(button, entry, dragState = "idle") {
   button.style.textDecoration = entry.enabled ? "none" : "line-through";
 }
 
-function createButtonElement(entry, index, onMove, onToggle, clearDropState) {
+function createButtonElement(entry, index, onMove, onToggle, onEdit, clearDropState) {
   const button = document.createElement("button");
   let suppressClickUntil = 0;
+  let clickTimer = null;
 
   button.type = "button";
   button.draggable = true;
@@ -216,10 +230,19 @@ function createButtonElement(entry, index, onMove, onToggle, clearDropState) {
     event.preventDefault();
     event.stopPropagation();
     if (performance.now() < suppressClickUntil) return;
-    onToggle(index);
+    clearTimeout(clickTimer);
+    clickTimer = window.setTimeout(() => onToggle(index), SINGLE_CLICK_DELAY_MS);
+  });
+
+  button.addEventListener("dblclick", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    clearTimeout(clickTimer);
+    onEdit(index, button);
   });
 
   button.addEventListener("dragstart", (event) => {
+    clearTimeout(clickTimer);
     suppressClickUntil = performance.now() + 500;
     event.stopPropagation();
     button.style.cursor = "grabbing";
@@ -391,6 +414,54 @@ function createDomControlsWidget(node) {
               writeState(node, this.entries);
               preserveNodeSize(node, () => this.render());
             },
+            (editIndex, button) => {
+              const editor = document.createElement("input");
+              const originalText = this.entries[editIndex]?.text ?? "";
+              let finished = false;
+              editor.type = "text";
+              editor.value = originalText;
+              editor.setAttribute("aria-label", "Edit tag");
+              Object.assign(editor.style, {
+                background: "#171717",
+                border: "2px solid #9ac7ff",
+                borderRadius: "4px",
+                boxSizing: "border-box",
+                color: "#ffffff",
+                font: "12px Arial, sans-serif",
+                minHeight: "28px",
+                minWidth: "120px",
+                padding: "4px 8px",
+              });
+              const finish = (save) => {
+                if (finished) return;
+                finished = true;
+                const nextText = editor.value.trim();
+                if (save && nextText && nextText !== originalText) {
+                  this.entries = this.entries.map((item, itemIndex) =>
+                    itemIndex === editIndex ? { ...item, text: nextText } : item
+                  );
+                  writeState(node, this.entries);
+                }
+                preserveNodeSize(node, () => this.render());
+              };
+              for (const eventName of ["pointerdown", "mousedown", "click", "dblclick"]) {
+                editor.addEventListener(eventName, (event) => event.stopPropagation());
+              }
+              editor.addEventListener("keydown", (event) => {
+                event.stopPropagation();
+                if (event.key === "Enter") {
+                  event.preventDefault();
+                  finish(true);
+                } else if (event.key === "Escape") {
+                  event.preventDefault();
+                  finish(false);
+                }
+              });
+              editor.addEventListener("blur", () => finish(true));
+              button.replaceWith(editor);
+              editor.focus();
+              editor.select();
+            },
             clearDropState
           )
         );
@@ -464,6 +535,9 @@ function createCanvasControlsWidget(node) {
     didDrag: false,
     updatePressed: false,
     updateBounds: null,
+    clickTimer: null,
+    lastClickAt: 0,
+    lastClickIndex: null,
 
     computeSize(width) {
       return [width, UPDATE_ROW_HEIGHT + BUTTON_VIEWPORT_HEIGHT + 12];
@@ -624,11 +698,33 @@ function createCanvasControlsWidget(node) {
           this.entries = reorder(this.entries, this.dragIndex, this.dropTarget.index, this.dropTarget.position);
           writeState(node, this.entries);
         } else if (!this.didDrag && this.dragIndex !== null && hit?.index === this.dragIndex) {
-          this.entries[this.dragIndex] = {
-            ...this.entries[this.dragIndex],
-            enabled: !this.entries[this.dragIndex].enabled,
-          };
-          writeState(node, this.entries);
+          const clickedIndex = this.dragIndex;
+          const now = performance.now();
+          const isDoubleClick =
+            this.lastClickIndex === clickedIndex && now - this.lastClickAt <= SINGLE_CLICK_DELAY_MS;
+          clearTimeout(this.clickTimer);
+          if (isDoubleClick) {
+            const nextText = window.prompt("Edit tag", this.entries[clickedIndex].text)?.trim();
+            if (nextText && nextText !== this.entries[clickedIndex].text) {
+              this.entries[clickedIndex] = { ...this.entries[clickedIndex], text: nextText };
+              writeState(node, this.entries);
+            }
+            this.lastClickAt = 0;
+            this.lastClickIndex = null;
+          } else {
+            this.lastClickAt = now;
+            this.lastClickIndex = clickedIndex;
+            this.clickTimer = window.setTimeout(() => {
+              this.entries[clickedIndex] = {
+                ...this.entries[clickedIndex],
+                enabled: !this.entries[clickedIndex].enabled,
+              };
+              writeState(node, this.entries);
+              node.setDirtyCanvas(true, true);
+              this.lastClickAt = 0;
+              this.lastClickIndex = null;
+            }, SINGLE_CLICK_DELAY_MS);
+          }
         }
         this.dragIndex = null;
         this.dropTarget = null;
