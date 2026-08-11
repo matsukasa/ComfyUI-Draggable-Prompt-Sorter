@@ -1,7 +1,7 @@
 [project]
 name = "draggable-prompt-sorter"
-version = "1.0.1"
-description = "Reorder and toggle comma-separated prompt items with draggable buttons in ComfyUI."
+version = "1.0.2"
+description = "カンマ区切りのプロンプト要素をドラッグで並べ替え、オン・オフできるComfyUIノード / Reorder and toggle comma-separated prompt items with draggable buttons in ComfyUI."
 readme = "README.md"
 requires-python = ">=3.9"
 dependencies = []
