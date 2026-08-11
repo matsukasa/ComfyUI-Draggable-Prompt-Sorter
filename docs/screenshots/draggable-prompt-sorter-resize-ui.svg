@@ -1,0 +1,85 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="820" viewBox="0 0 1280 820">
+  <rect width="1280" height="820" fill="#202020"/>
+  <g transform="translate(120 76)">
+    <rect x="0" y="0" width="1040" height="668" rx="10" fill="#171717" stroke="#383838"/>
+    <circle cx="52" cy="48" r="14" fill="#2f7dd3" opacity=".9"/>
+    <circle cx="92" cy="48" r="14" fill="#3a3a3a"/>
+    <circle cx="132" cy="48" r="14" fill="#2f7dd3" opacity=".9"/>
+    <text x="520" y="58" text-anchor="middle" fill="#f3f5f7" font-family="Arial, sans-serif" font-size="24" font-weight="700">Draggable Prompt Sorter</text>
+    <text x="520" y="92" text-anchor="middle" fill="#a8b2bd" font-family="Arial, sans-serif" font-size="15">Resizable button list with persisted height</text>
+
+    <g transform="translate(356 128)">
+      <rect x="0" y="0" width="328" height="456" rx="8" fill="#222831" stroke="#58616d" stroke-width="2"/>
+      <rect x="0" y="0" width="328" height="36" rx="8" fill="#30445b"/>
+      <rect x="0" y="28" width="328" height="8" fill="#30445b"/>
+      <text x="16" y="24" fill="#ffffff" font-family="Arial, sans-serif" font-size="14" font-weight="700">Draggable Prompt Sorter</text>
+      <circle cx="302" cy="18" r="6" fill="#78b6ff"/>
+
+      <g transform="translate(16 52)">
+        <text x="0" y="18" fill="#cbd5df" font-family="Arial, sans-serif" font-size="13">text</text>
+        <line x1="268" y1="11" x2="296" y2="11" stroke="#78b6ff" stroke-width="2"/>
+        <circle cx="296" cy="11" r="5" fill="#78b6ff"/>
+      </g>
+      <g transform="translate(16 86)">
+        <text x="0" y="18" fill="#cbd5df" font-family="Arial, sans-serif" font-size="13">order_state</text>
+        <line x1="268" y1="11" x2="296" y2="11" stroke="#78b6ff" stroke-width="2"/>
+        <circle cx="296" cy="11" r="5" fill="#78b6ff"/>
+      </g>
+
+      <g transform="translate(16 128)">
+        <rect x="68" y="0" width="228" height="24" rx="4" fill="#355f82" stroke="#547fa3"/>
+        <text x="182" y="17" text-anchor="middle" fill="#ffffff" font-family="Arial, sans-serif" font-size="12">Update</text>
+
+        <g transform="translate(0 32)">
+          <rect x="0" y="0" width="296" height="206" rx="5" fill="#15191f" stroke="#313843"/>
+          <g transform="translate(8 8)" font-family="Arial, sans-serif" font-size="12" font-weight="600">
+            <rect x="0" y="0" width="93" height="29" rx="4" fill="#2f7dd3" stroke="#78b6ff"/>
+            <text x="46" y="19" text-anchor="middle" fill="#ffffff">masterpiece</text>
+            <rect x="101" y="0" width="88" height="29" rx="4" fill="#242424" stroke="#555555" opacity=".78"/>
+            <text x="145" y="19" text-anchor="middle" fill="#aaaaaa" text-decoration="line-through">best quality</text>
+            <rect x="197" y="0" width="66" height="29" rx="4" fill="#2f7dd3" stroke="#78b6ff"/>
+            <text x="230" y="19" text-anchor="middle" fill="#ffffff">1girl</text>
+
+            <rect x="0" y="39" width="82" height="29" rx="4" fill="#2f7dd3" stroke="#78b6ff"/>
+            <text x="41" y="58" text-anchor="middle" fill="#ffffff">blue eyes</text>
+            <rect x="90" y="39" width="78" height="29" rx="4" fill="#2f7dd3" stroke="#78b6ff"/>
+            <text x="129" y="58" text-anchor="middle" fill="#ffffff">long hair</text>
+            <rect x="176" y="39" width="94" height="29" rx="4" fill="#2f7dd3" stroke="#78b6ff"/>
+            <text x="223" y="58" text-anchor="middle" fill="#ffffff">soft light</text>
+
+            <rect x="0" y="78" width="106" height="29" rx="4" fill="#2f7dd3" stroke="#78b6ff"/>
+            <text x="53" y="97" text-anchor="middle" fill="#ffffff">dynamic pose</text>
+            <rect x="114" y="78" width="122" height="29" rx="4" fill="#2f7dd3" stroke="#78b6ff"/>
+            <text x="175" y="97" text-anchor="middle" fill="#ffffff">detailed shading</text>
+            <rect x="0" y="117" width="84" height="29" rx="4" fill="#2f7dd3" stroke="#78b6ff"/>
+            <text x="42" y="136" text-anchor="middle" fill="#ffffff">standing</text>
+            <rect x="92" y="117" width="118" height="29" rx="4" fill="#2f7dd3" stroke="#78b6ff"/>
+            <text x="151" y="136" text-anchor="middle" fill="#ffffff">looking at viewer</text>
+          </g>
+        </g>
+
+        <g transform="translate(8 246)">
+          <rect x="0" y="0" width="280" height="20" rx="5" fill="#2b3440"/>
+          <text x="140" y="13" text-anchor="middle" fill="#f3f5f7" font-family="Arial, sans-serif" font-size="18" letter-spacing="2">...</text>
+        </g>
+      </g>
+
+      <g transform="translate(16 416)">
+        <text x="0" y="18" fill="#cbd5df" font-family="Arial, sans-serif" font-size="13">prompt</text>
+        <line x1="268" y1="11" x2="296" y2="11" stroke="#78b6ff" stroke-width="2"/>
+        <circle cx="296" cy="11" r="5" fill="#78b6ff"/>
+      </g>
+    </g>
+
+    <g transform="translate(724 190)" font-family="Arial, sans-serif">
+      <rect x="0" y="0" width="234" height="210" rx="8" fill="#11151a" stroke="#3e4650"/>
+      <text x="20" y="36" fill="#ffffff" font-size="18" font-weight="700">Height control</text>
+      <text x="20" y="72" fill="#b8c2ce" font-size="14">Drag the dot handle to resize.</text>
+      <text x="20" y="103" fill="#b8c2ce" font-size="14">Double-click resets to default.</text>
+      <text x="20" y="134" fill="#b8c2ce" font-size="14">The height is saved in the workflow.</text>
+      <path d="M36 166 H198" stroke="#78b6ff" stroke-width="4" stroke-linecap="round"/>
+      <circle cx="36" cy="166" r="6" fill="#78b6ff"/>
+      <circle cx="198" cy="166" r="6" fill="#78b6ff"/>
+    </g>
+  </g>
+</svg>

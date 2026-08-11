@@ -3,11 +3,21 @@ import { app } from "../../scripts/app.js";
 const EXTENSION_NAME = "draggablePromptSorter.draggablePromptSorter";
 const NODE_NAME = "DraggablePromptSorter";
 const STATE_VERSION = 2;
-const BUTTON_VIEWPORT_HEIGHT = 160;
+const DEFAULT_BUTTON_VIEWPORT_HEIGHT = 160;
+const MIN_BUTTON_VIEWPORT_HEIGHT = 96;
+const MAX_BUTTON_VIEWPORT_HEIGHT = 720;
 const UPDATE_ROW_HEIGHT = 22;
+const RESIZE_HANDLE_HEIGHT = 20;
 const UPDATE_LEFT_INSET = 76;
 const WIDGETS_START_Y = 1;
 const SINGLE_CLICK_DELAY_MS = 450;
+
+function clampButtonViewportHeight(value) {
+  return Math.min(
+    MAX_BUTTON_VIEWPORT_HEIGHT,
+    Math.max(MIN_BUTTON_VIEWPORT_HEIGHT, Math.round(Number(value) || DEFAULT_BUTTON_VIEWPORT_HEIGHT))
+  );
+}
 
 function splitPromptText(text) {
   return String(text ?? "")
@@ -93,19 +103,23 @@ function readState(node) {
   try {
     const state = JSON.parse(widget.value);
     const entries = normalizeEntries(state.items);
-    return entries.length ? { version: state.version ?? 1, entries } : null;
+    const buttonViewportHeight = clampButtonViewportHeight(state.buttonViewportHeight);
+    return entries.length ? { version: state.version ?? 1, entries, buttonViewportHeight } : null;
   } catch {
     return null;
   }
 }
 
-function writeState(node, entries) {
+function writeState(node, entries, buttonViewportHeight = null) {
   const widget = getWidget(node, "order_state");
   if (!widget) return;
+  const storedHeight =
+    buttonViewportHeight === null ? readState(node)?.buttonViewportHeight : buttonViewportHeight;
 
   widget.value = JSON.stringify({
     version: STATE_VERSION,
     items: entries.map((entry) => ({ text: entry.text, enabled: entry.enabled })),
+    buttonViewportHeight: clampButtonViewportHeight(storedHeight),
   });
   node.graph?.change?.();
   node.graph?.setDirtyCanvas(true, true);
@@ -290,17 +304,32 @@ function createButtonElement(entry, index, onMove, onToggle, onEdit, clearDropSt
 }
 
 function createDomControlsWidget(node) {
-  const controlsHeight = UPDATE_ROW_HEIGHT + BUTTON_VIEWPORT_HEIGHT;
+  let buttonViewportHeight = readState(node)?.buttonViewportHeight ?? DEFAULT_BUTTON_VIEWPORT_HEIGHT;
+  const getControlsHeight = () => UPDATE_ROW_HEIGHT + buttonViewportHeight + RESIZE_HANDLE_HEIGHT;
   const controls = document.createElement("div");
   const updateRow = document.createElement("div");
   const updateButton = document.createElement("button");
   const container = document.createElement("div");
+  const resizeHandle = document.createElement("div");
+  const resizeMark = document.createElement("span");
+
+  const applyButtonViewportHeight = (height, persist = false) => {
+    buttonViewportHeight = clampButtonViewportHeight(height);
+    controls.style.height = `${getControlsHeight()}px`;
+    container.style.height = `${buttonViewportHeight}px`;
+    resizeHandle.setAttribute("aria-valuemin", String(MIN_BUTTON_VIEWPORT_HEIGHT));
+    resizeHandle.setAttribute("aria-valuemax", String(MAX_BUTTON_VIEWPORT_HEIGHT));
+    resizeHandle.setAttribute("aria-valuenow", String(buttonViewportHeight));
+    if (persist) writeState(node, api.entries, buttonViewportHeight);
+    fitNodeToContent(node);
+    return buttonViewportHeight;
+  };
+
   Object.assign(controls.style, {
     boxSizing: "border-box",
     display: "flex",
     flexDirection: "column",
     gap: "0",
-    height: `${controlsHeight}px`,
     overflow: "hidden",
     width: "100%",
   });
@@ -359,7 +388,6 @@ function createDomControlsWidget(node) {
     display: "flex",
     flexWrap: "wrap",
     gap: "6px",
-    height: `${BUTTON_VIEWPORT_HEIGHT}px`,
     overflowX: "hidden",
     overflowY: "auto",
     padding: "0 8px 8px",
@@ -370,6 +398,85 @@ function createDomControlsWidget(node) {
     container.addEventListener(eventName, (event) => event.stopPropagation());
   }
 
+  resizeMark.textContent = "...";
+  Object.assign(resizeMark.style, {
+    font: "18px Arial, sans-serif",
+    letterSpacing: "2px",
+    lineHeight: "0.5",
+    transform: "rotate(90deg)",
+  });
+
+  resizeHandle.tabIndex = 0;
+  resizeHandle.setAttribute("role", "separator");
+  resizeHandle.setAttribute("aria-orientation", "horizontal");
+  resizeHandle.setAttribute("aria-label", "Resize button list");
+  Object.assign(resizeHandle.style, {
+    alignItems: "center",
+    borderRadius: "5px",
+    boxSizing: "border-box",
+    color: "#a9b4c0",
+    cursor: "ns-resize",
+    display: "flex",
+    flex: `0 0 ${RESIZE_HANDLE_HEIGHT}px`,
+    height: `${RESIZE_HANDLE_HEIGHT}px`,
+    justifyContent: "center",
+    margin: "0 8px",
+    minHeight: `${RESIZE_HANDLE_HEIGHT}px`,
+    touchAction: "none",
+    userSelect: "none",
+  });
+  resizeHandle.appendChild(resizeMark);
+
+  for (const eventName of ["pointerdown", "mousedown", "click", "dblclick", "keydown"]) {
+    resizeHandle.addEventListener(eventName, (event) => event.stopPropagation());
+  }
+  resizeHandle.addEventListener("pointerenter", () => {
+    resizeHandle.style.background = "#2b3440";
+    resizeHandle.style.color = "#ffffff";
+  });
+  resizeHandle.addEventListener("pointerleave", () => {
+    resizeHandle.style.background = "transparent";
+    resizeHandle.style.color = "#a9b4c0";
+  });
+  resizeHandle.addEventListener("pointerdown", (event) => {
+    if (event.button !== 0) return;
+    event.preventDefault();
+    const pointerId = event.pointerId;
+    const startY = event.clientY;
+    const startHeight = buttonViewportHeight;
+    resizeHandle.style.background = "#2b3440";
+    resizeHandle.style.color = "#ffffff";
+    resizeHandle.setPointerCapture?.(pointerId);
+    const move = (moveEvent) => {
+      if (moveEvent.pointerId !== pointerId) return;
+      applyButtonViewportHeight(startHeight + moveEvent.clientY - startY);
+    };
+    const finish = (finishEvent) => {
+      if (finishEvent.pointerId !== pointerId) return;
+      resizeHandle.removeEventListener("pointermove", move);
+      resizeHandle.removeEventListener("pointerup", finish);
+      resizeHandle.removeEventListener("pointercancel", finish);
+      resizeHandle.releasePointerCapture?.(pointerId);
+      applyButtonViewportHeight(buttonViewportHeight, true);
+    };
+    resizeHandle.addEventListener("pointermove", move);
+    resizeHandle.addEventListener("pointerup", finish);
+    resizeHandle.addEventListener("pointercancel", finish);
+  });
+  resizeHandle.addEventListener("dblclick", (event) => {
+    event.preventDefault();
+    applyButtonViewportHeight(DEFAULT_BUTTON_VIEWPORT_HEIGHT, true);
+  });
+  resizeHandle.addEventListener("keydown", (event) => {
+    if (!["ArrowUp", "ArrowDown", "Home"].includes(event.key)) return;
+    event.preventDefault();
+    const nextHeight =
+      event.key === "Home"
+        ? DEFAULT_BUTTON_VIEWPORT_HEIGHT
+        : buttonViewportHeight + (event.key === "ArrowDown" ? 20 : -20);
+    applyButtonViewportHeight(nextHeight, true);
+  });
+
   const api = {
     entries: [],
 
@@ -379,7 +486,7 @@ function createDomControlsWidget(node) {
 
     setEntries(entries, save = true) {
       this.entries = normalizeEntries(entries);
-      if (save) writeState(node, this.entries);
+      if (save) writeState(node, this.entries, buttonViewportHeight);
       preserveNodeSize(node, () => this.render());
     },
 
@@ -387,6 +494,10 @@ function createDomControlsWidget(node) {
       const state = readState(node);
       const entries = state && sameTextMultiset(state.entries, items) ? state.entries : makeEntries(items);
       this.setEntries(entries);
+    },
+
+    setButtonViewportHeight(height, save = false) {
+      applyButtonViewportHeight(height, save);
     },
 
     render() {
@@ -406,7 +517,7 @@ function createDomControlsWidget(node) {
             index,
             (fromIndex, targetIndex, position) => {
               this.entries = reorder(this.entries, fromIndex, targetIndex, position);
-              writeState(node, this.entries);
+              writeState(node, this.entries, buttonViewportHeight);
               preserveNodeSize(node, () => this.render());
             },
             (toggleIndex) => {
@@ -472,24 +583,26 @@ function createDomControlsWidget(node) {
     },
   };
 
-  controls.append(updateRow, container);
+  controls.append(updateRow, container, resizeHandle);
+  applyButtonViewportHeight(buttonViewportHeight);
   const widget = node.addDOMWidget("prompt_buttons", "div", controls, {
     getValue: () => api.entries,
-    getMaxHeight: () => controlsHeight,
-    getMinHeight: () => controlsHeight,
+    getMaxHeight: () => getControlsHeight(),
+    getMinHeight: () => getControlsHeight(),
     setValue: (value) => api.setEntries(value, false),
   });
 
   widget.serialize = false;
   widget.computeLayoutSize = () => ({
-    minHeight: controlsHeight,
-    maxHeight: controlsHeight,
+    minHeight: getControlsHeight(),
+    maxHeight: getControlsHeight(),
     minWidth: 0,
   });
-  widget.computeSize = (width) => [width, controlsHeight + 12];
+  widget.computeSize = (width) => [width, getControlsHeight() + 12];
   widget.getEntries = api.getEntries.bind(api);
   widget.setEntries = api.setEntries.bind(api);
   widget.setSourceItems = api.setSourceItems.bind(api);
+  widget.setButtonViewportHeight = api.setButtonViewportHeight.bind(api);
   widget.render = api.render.bind(api);
   return widget;
 }
@@ -535,6 +648,7 @@ function createCanvasControlsWidget(node) {
     name: "prompt_buttons",
     type: "custom",
     entries: [],
+    buttonViewportHeight: readState(node)?.buttonViewportHeight ?? DEFAULT_BUTTON_VIEWPORT_HEIGHT,
     y: 0,
     lastLayout: [],
     contentHeight: 0,
@@ -549,7 +663,7 @@ function createCanvasControlsWidget(node) {
     lastClickIndex: null,
 
     computeSize(width) {
-      return [width, UPDATE_ROW_HEIGHT + BUTTON_VIEWPORT_HEIGHT + 12];
+      return [width, UPDATE_ROW_HEIGHT + this.buttonViewportHeight + RESIZE_HANDLE_HEIGHT + 12];
     },
 
     getEntries() {
@@ -558,7 +672,7 @@ function createCanvasControlsWidget(node) {
 
     setEntries(entries, save = true) {
       this.entries = normalizeEntries(entries);
-      if (save) writeState(node, this.entries);
+      if (save) writeState(node, this.entries, this.buttonViewportHeight);
       this.scrollOffset = Math.min(this.scrollOffset, this.maxScroll());
       node.setDirtyCanvas(true, true);
     },
@@ -569,8 +683,14 @@ function createCanvasControlsWidget(node) {
       this.setEntries(entries);
     },
 
+    setButtonViewportHeight(height, save = false) {
+      this.buttonViewportHeight = clampButtonViewportHeight(height);
+      if (save) writeState(node, this.entries, this.buttonViewportHeight);
+      fitNodeToContent(node);
+    },
+
     maxScroll() {
-      return Math.max(0, this.contentHeight - BUTTON_VIEWPORT_HEIGHT);
+      return Math.max(0, this.contentHeight - this.buttonViewportHeight);
     },
 
     draw(ctx, _node, width, y) {
@@ -601,7 +721,7 @@ function createCanvasControlsWidget(node) {
 
       ctx.save();
       ctx.beginPath();
-      ctx.rect(0, y + UPDATE_ROW_HEIGHT, width, BUTTON_VIEWPORT_HEIGHT);
+      ctx.rect(0, y + UPDATE_ROW_HEIGHT, width, this.buttonViewportHeight);
       ctx.clip();
       ctx.translate(0, y + UPDATE_ROW_HEIGHT - this.scrollOffset);
 
@@ -639,6 +759,15 @@ function createCanvasControlsWidget(node) {
         }
       }
       ctx.restore();
+
+      const handleY = y + UPDATE_ROW_HEIGHT + this.buttonViewportHeight;
+      ctx.save();
+      ctx.fillStyle = "#a9b4c0";
+      ctx.font = "18px Arial";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText("...", width / 2, handleY + RESIZE_HANDLE_HEIGHT / 2 - 1);
+      ctx.restore();
     },
 
     mouse(event, pos) {
@@ -648,6 +777,8 @@ function createCanvasControlsWidget(node) {
         pos[0] <= this.updateBounds.x + this.updateBounds.w &&
         pos[1] >= this.updateBounds.y &&
         pos[1] <= this.updateBounds.y + this.updateBounds.h;
+      const handleY = this.y + UPDATE_ROW_HEIGHT + this.buttonViewportHeight;
+      const handleHit = pos[1] >= handleY && pos[1] <= handleY + RESIZE_HANDLE_HEIGHT;
 
       if ((event.type === "pointerdown" || event.type === "mousedown") && updateHit) {
         this.updatePressed = true;
@@ -667,6 +798,36 @@ function createCanvasControlsWidget(node) {
         this.updatePressed = false;
         node.setDirtyCanvas(true, true);
         if (shouldUpdate) queueThisNode(node);
+        return true;
+      }
+
+      if (event.type === "dblclick" && handleHit) {
+        this.setButtonViewportHeight(DEFAULT_BUTTON_VIEWPORT_HEIGHT, true);
+        return true;
+      }
+
+      if ((event.type === "pointerdown" || event.type === "mousedown") && handleHit) {
+        this.resizeStartY = pos[1];
+        this.resizeStartHeight = this.buttonViewportHeight;
+        return true;
+      }
+
+      if ((event.type === "pointermove" || event.type === "mousemove") && this.resizeStartY !== undefined) {
+        this.buttonViewportHeight = clampButtonViewportHeight(
+          this.resizeStartHeight + pos[1] - this.resizeStartY
+        );
+        fitNodeToContent(node);
+        return true;
+      }
+
+      if (
+        this.resizeStartY !== undefined &&
+        (event.type === "pointerup" || event.type === "mouseup" || event.type === "pointercancel")
+      ) {
+        this.resizeStartY = undefined;
+        this.resizeStartHeight = undefined;
+        writeState(node, this.entries, this.buttonViewportHeight);
+        fitNodeToContent(node);
         return true;
       }
 
@@ -705,7 +866,7 @@ function createCanvasControlsWidget(node) {
       if (event.type === "pointerup" || event.type === "mouseup" || event.type === "pointercancel") {
         if (event.type !== "pointercancel" && this.dragIndex !== null && this.dropTarget) {
           this.entries = reorder(this.entries, this.dragIndex, this.dropTarget.index, this.dropTarget.position);
-          writeState(node, this.entries);
+          writeState(node, this.entries, this.buttonViewportHeight);
         } else if (!this.didDrag && this.dragIndex !== null && hit?.index === this.dragIndex) {
           const clickedIndex = this.dragIndex;
           const now = performance.now();
@@ -788,6 +949,7 @@ app.registerExtension({
       this.widgets_start_y = WIDGETS_START_Y;
       const state = readState(this);
       if (state?.entries && this.promptButtonsWidget) {
+        this.promptButtonsWidget.setButtonViewportHeight?.(state.buttonViewportHeight, false);
         this.promptButtonsWidget.setEntries(state.entries, false);
       }
       fitNodeToContent(this);

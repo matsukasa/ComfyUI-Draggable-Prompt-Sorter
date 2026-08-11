@@ -4,6 +4,8 @@
 
 ComfyUI用のカスタムノードです。前段ノードからカンマ区切りの文字列を受け取り、各要素をドラッグ可能なボタンとして表示します。ボタンはクリックでオン・オフでき、オンの項目だけを現在の順番で次のノードへ渡します。
 
+![Draggable Prompt Sorter resize UI](docs/screenshots/draggable-prompt-sorter-resize-ui.png)
+
 ### インストール
 
 #### Comfy Registry / ComfyUI-Manager
